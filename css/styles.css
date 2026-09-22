@@ -260,6 +260,117 @@ main {
   text-decoration: underline;
 }
 
+.reward-total {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--yellow-deep);
+  margin: 6px 0 2px;
+}
+
+.reward-total-small {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.week-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 130px;
+  padding-top: 18px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.bar-value {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.bar {
+  width: 100%;
+  max-width: 22px;
+  background: var(--yellow-deep);
+  border-radius: 6px 6px 2px 2px;
+  min-height: 3px;
+}
+
+.bar-label {
+  font-size: 0.6rem;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.run-log-list {
+  margin-top: 10px;
+}
+
+.run-log-row {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  padding: 4px 0;
+  border-top: 1px solid #f2e8cb;
+}
+
+.run-log-row:first-child {
+  border-top: none;
+}
+
+.massage-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.massage-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--yellow-deep);
+  background: #fff;
+}
+
+.massage-dot.filled {
+  background: var(--yellow-deep);
+}
+
+.override-list {
+  margin-top: 10px;
+}
+
+.override-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 6px 0;
+  border-top: 1px solid #f2e8cb;
+}
+
+.override-row:first-child {
+  border-top: none;
+}
+
 .week-grid {
   display: flex;
   flex-direction: column;
@@ -340,7 +451,8 @@ main {
   color: var(--ink-soft);
 }
 
-.card input[type="number"] {
+.card input[type="number"],
+.card input[type="date"] {
   display: block;
   margin-top: 4px;
   padding: 8px 10px;

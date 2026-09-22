@@ -24,7 +24,7 @@ const WEEKLY_PLAN = {
   4: [
     { id: 'physio-thu', kind: 'check', icon: '💪', title: 'Shoulder physio', subtitle: 'Your usual rehab set — get it done before netball.' },
     { id: 'netball-thu', kind: 'check', icon: '🏐', title: 'Netball', subtitle: 'Thursday night netball.' },
-    { id: 'massage-thu', kind: 'info', icon: '💆‍♀️', title: 'Recovery massage', subtitle: 'After netball — Dougall\'s got you covered. Just show up and relax.' },
+    { id: 'massage-thu', kind: 'check', icon: '💆‍♀️', title: 'Recovery massage', subtitle: 'After netball — Dougall\'s got you covered. Tick it off once you\'ve had it.' },
   ],
   // Friday — optional bonus pilates
   5: [
@@ -65,7 +65,13 @@ const ENCOURAGEMENTS = [
 ];
 
 const PERIOD_MESSAGES = [
-  "Period days — full rest, zero pressure. Do whatever feels good today 🫶",
-  "No training today, no exceptions. Tea, blanket, whatever you fancy 💛",
-  "Your body's doing enough work already. Rest day, tiger 🐯",
+  "Period days — no organised exercise. Anything you do today is a bonus, not a requirement 🫶",
+  "Nothing's on the plan today. If you feel like moving, lovely — if not, that's perfect too 💛",
+  "Your body's doing enough work already. Whatever you do today is a bonus, tiger 🐯",
 ];
+
+const GREETING_MESSAGES = {
+  morning: 'Good morning - duggydeath 🐯',
+  midday: 'Happy midday, tiger ☀️',
+  night: 'Sweet dreams - show Gigi and Teddy some love for me 🐾💛',
+};

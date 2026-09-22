@@ -51,6 +51,42 @@
     <div id="week-grid" class="week-grid"></div>
   </section>
 
+  <section id="panel-progress" class="panel hidden">
+    <h2 class="panel-title">Progress</h2>
+
+    <div class="card">
+      <div class="card-heading">🪶 Rewards</div>
+      <p class="fine-print" style="margin-top:0;">Complete every required task in a week (period days don't count against you) and Dougall owes 5 beard plucks.</p>
+      <div class="reward-total"><span id="beard-plucks-count">0</span> beard plucks owed</div>
+      <div class="fine-print"><span id="perfect-weeks-count">0</span> perfect week(s) so far</div>
+      <div class="week-progress-label" id="week-progress-label"></div>
+      <div class="steps-track"><div id="week-progress-fill" class="steps-fill"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">👟 Run distance</div>
+      <div id="run-chart"></div>
+      <div id="run-log-list" class="run-log-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">😴 Sleep scores (last 14 days)</div>
+      <div id="sleep-chart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">👣 Steps (last 14 days)</div>
+      <div id="steps-chart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">💆‍♀️ Recovery massages</div>
+      <div id="massage-count" class="reward-total-small"></div>
+      <div id="massage-dots" class="massage-dots"></div>
+      <div class="fine-print">Last 8 weeks — filled means a massage was logged that week.</div>
+    </div>
+  </section>
+
   <section id="panel-wellness" class="panel hidden">
     <h2 class="panel-title">Wellness</h2>
 
@@ -82,11 +118,22 @@
     <h2 class="panel-title">Settings</h2>
 
     <div class="card">
-      <div class="card-heading">🩸 Period days (rest, no exercise)</div>
+      <div class="card-heading">🩸 Default period days (starting point)</div>
       <div class="settings-row">
         <label>Start day of month <input id="period-start-input" type="number" min="1" max="31" /></label>
         <label>End day of month <input id="period-end-input" type="number" min="1" max="31" /></label>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">🩸 Adjust this cycle's dates</div>
+      <p class="fine-print" style="margin-top:0;">Cycles shift — add the exact dates for any month here, on top of the default above.</p>
+      <div class="settings-row">
+        <label>Start <input id="period-override-start" type="date" /></label>
+        <label>End <input id="period-override-end" type="date" /></label>
+      </div>
+      <button id="period-override-add-btn" class="run-save-btn" style="margin-top:10px;">Add</button>
+      <div id="period-override-list" class="override-list"></div>
     </div>
 
     <div class="card">
@@ -116,6 +163,7 @@
 <nav class="tab-bar">
   <button class="tab-btn active" data-tab="today">🐯<span>Today</span></button>
   <button class="tab-btn" data-tab="week">📅<span>Week</span></button>
+  <button class="tab-btn" data-tab="progress">📈<span>Progress</span></button>
   <button class="tab-btn" data-tab="wellness">💛<span>Wellness</span></button>
   <button class="tab-btn" data-tab="settings">⚙️<span>Settings</span></button>
 </nav>

@@ -28,6 +28,8 @@ function loadState() {
   state.steps = state.steps || {}; // "YYYY-MM-DD" -> number
   state.wellness = state.wellness || {}; // "YYYY-Www" -> { reading:bool, swim:bool }
   state.runs = state.runs || {}; // "YYYY-MM-DD" -> { km:number, minutes:number|null }
+  state.periodOverrides = state.periodOverrides || []; // [{ start:'YYYY-MM-DD', end:'YYYY-MM-DD' }]
+  state.personalBests = state.personalBests || {}; // { runKm, sleepScore, steps }
   if (!state.settings.programStart) {
     state.settings.programStart = dateKey(new Date());
   }
@@ -71,9 +73,16 @@ function weekKey(d) {
 }
 
 function isPeriodDay(d) {
+  const key = dateKey(d);
+  const inOverride = state.periodOverrides.some((o) => key >= o.start && key <= o.end);
+  if (inOverride) return true;
   const dom = d.getDate();
   const { periodStartDay, periodEndDay } = state.settings;
   return dom >= periodStartDay && dom <= periodEndDay;
+}
+
+function formatShortDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function weekNumberFor(d) {
@@ -127,6 +136,20 @@ function renderHeader(today) {
   dateLabelEl.textContent = today.toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
   });
+}
+
+// One special greeting notification per day, based on what time she first opens the app.
+function maybeShowGreetingNotification() {
+  const today = dateKey(new Date());
+  if (state.lastGreetingShown === today) return;
+  const hour = new Date().getHours();
+  let msg;
+  if (hour < 11) msg = GREETING_MESSAGES.morning;
+  else if (hour < 18) msg = GREETING_MESSAGES.midday;
+  else msg = GREETING_MESSAGES.night;
+  state.lastGreetingShown = today;
+  saveState();
+  setTimeout(() => showToast(msg), 500);
 }
 
 function taskKey(d, id) {
@@ -230,7 +253,13 @@ function runsInWeekOf(d) {
 
 function saveRun(dateKeyStr, km, minutes) {
   state.runs[dateKeyStr] = { km, minutes: minutes || null };
+  let isPB = false;
+  if (km > (state.personalBests.runKm || 0)) {
+    state.personalBests.runKm = km;
+    isPB = true;
+  }
   saveState();
+  return isPB;
 }
 
 function runLogForm(dateKeyStr, onSaved) {
@@ -272,8 +301,8 @@ function runLogForm(dateKeyStr, onSaved) {
       return;
     }
     const minutes = parseInt(minInput.value, 10);
-    saveRun(dateKeyStr, km, isNaN(minutes) ? null : minutes);
-    showToast(pickEncouragement());
+    const isPB = saveRun(dateKeyStr, km, isNaN(minutes) ? null : minutes);
+    showToast(isPB ? `🏆 New personal best! Longest run yet: ${km}km — incredible, tiger!` : pickEncouragement());
     onSaved();
   });
   wrap.appendChild(saveBtn);
@@ -423,8 +452,16 @@ function renderSleepAndSteps(today) {
     btn.textContent = face;
     btn.classList.toggle('selected', state.sleep[key] === score);
     btn.addEventListener('click', () => {
-      state.sleep[key] = state.sleep[key] === score ? undefined : score;
-      if (!state.sleep[key]) delete state.sleep[key];
+      const settingScore = state.sleep[key] !== score;
+      if (settingScore) {
+        state.sleep[key] = score;
+        if (score > (state.personalBests.sleepScore || 0)) {
+          state.personalBests.sleepScore = score;
+          showToast('🏆 New personal best sleep score! Look at you go.');
+        }
+      } else {
+        delete state.sleep[key];
+      }
       saveState();
       renderSleepAndSteps(today);
     });
@@ -448,6 +485,15 @@ stepsInputEl.addEventListener('input', () => {
   saveState();
   const pct = Math.min(100, Math.round(((state.steps[key] || 0) / state.settings.stepGoal) * 100));
   stepsBarEl.style.width = pct + '%';
+});
+
+stepsInputEl.addEventListener('change', () => {
+  const val = parseInt(stepsInputEl.value, 10);
+  if (!isNaN(val) && val > (state.personalBests.steps || 0)) {
+    state.personalBests.steps = val;
+    saveState();
+    showToast('🏆 New personal best step count! Go tiger!');
+  }
 });
 
 // ---------- week view ----------
@@ -552,6 +598,194 @@ function setWellness(field, val) {
 readingCheckEl.addEventListener('change', () => setWellness('reading', readingCheckEl.checked));
 swimCheckEl.addEventListener('change', () => setWellness('swim', swimCheckEl.checked));
 
+// ---------- rewards ----------
+
+function anyRunLoggedInWeek(monday) {
+  const sunday = addDays(monday, 6);
+  return Object.keys(state.runs).some((k) => {
+    const rd = new Date(k + 'T00:00:00');
+    return rd >= monday && rd <= sunday;
+  });
+}
+
+// A week counts as "perfect" if every required (non-optional) check task
+// was done on every day that wasn't a period day. Weeks made entirely of
+// period days aren't perfect — there was nothing to complete.
+function isWeekPerfect(monday) {
+  let hasRequirement = false;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    if (isPeriodDay(d)) continue;
+    const tasks = WEEKLY_PLAN[d.getDay()] || [];
+    for (const t of tasks) {
+      if (t.kind !== 'check' || t.optional) continue;
+      hasRequirement = true;
+      if (t.id === 'casual-run') {
+        if (!anyRunLoggedInWeek(monday)) return false;
+      } else if (!isDone(d, t.id)) {
+        return false;
+      }
+    }
+  }
+  return hasRequirement;
+}
+
+function countPerfectWeeks() {
+  const startMonday = weekRangeFor(startOfDay(new Date(state.settings.programStart))).monday;
+  const thisMonday = weekRangeFor(startOfDay(new Date())).monday;
+  let count = 0;
+  let cursor = startMonday;
+  while (cursor < thisMonday) {
+    if (isWeekPerfect(cursor)) count++;
+    cursor = addDays(cursor, 7);
+  }
+  return count;
+}
+
+function currentWeekProgress() {
+  const today = startOfDay(new Date());
+  const { monday } = weekRangeFor(today);
+  const daysSoFar = (today.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  let total = 0;
+  let done = 0;
+  for (let i = 0; i <= daysSoFar; i++) {
+    const d = addDays(monday, i);
+    if (isPeriodDay(d)) continue;
+    const tasks = WEEKLY_PLAN[d.getDay()] || [];
+    tasks.forEach((t) => {
+      if (t.kind !== 'check' || t.optional) return;
+      total++;
+      if (t.id === 'casual-run') {
+        if (anyRunLoggedInWeek(monday)) done++;
+      } else if (isDone(d, t.id)) done++;
+    });
+  }
+  return { done, total };
+}
+
+function totalMassageCount() {
+  return Object.keys(state.completed).filter((k) => k.endsWith('|massage-thu')).length;
+}
+
+// ---------- progress charts ----------
+
+function renderBarChart(container, items, opts) {
+  opts = opts || {};
+  container.innerHTML = '';
+  const max = opts.max || Math.max(1, ...items.map((i) => i.value || 0));
+  const chart = document.createElement('div');
+  chart.className = 'bar-chart';
+  items.forEach((item) => {
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+
+    const valueLabel = document.createElement('div');
+    valueLabel.className = 'bar-value';
+    valueLabel.textContent = item.value ? (opts.formatValue ? opts.formatValue(item.value) : item.value) : '';
+    col.appendChild(valueLabel);
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const pct = item.value ? Math.max(4, Math.round((item.value / max) * 100)) : 2;
+    bar.style.height = pct + '%';
+    if (opts.barColor) bar.style.background = opts.barColor(item.value);
+    col.appendChild(bar);
+
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    label.textContent = item.label;
+    col.appendChild(label);
+
+    chart.appendChild(col);
+  });
+  container.appendChild(chart);
+}
+
+function last14Days() {
+  const today = startOfDay(new Date());
+  const days = [];
+  for (let i = 13; i >= 0; i--) days.push(addDays(today, -i));
+  return days;
+}
+
+function renderProgress() {
+  // Runs
+  const runs = Object.keys(state.runs)
+    .map((k) => Object.assign({ dateKey: k, date: new Date(k + 'T00:00:00') }, state.runs[k]))
+    .sort((a, b) => a.date - b.date)
+    .slice(-8);
+  const runChartEl = document.getElementById('run-chart');
+  const runListEl = document.getElementById('run-log-list');
+  if (runs.length === 0) {
+    runChartEl.innerHTML = '<div class="fine-print">No runs logged yet — once you log one, it\'ll show up here.</div>';
+    runListEl.innerHTML = '';
+  } else {
+    renderBarChart(runChartEl, runs.map((r) => ({
+      label: r.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      value: r.km,
+    })), { formatValue: (v) => v + 'km' });
+    runListEl.innerHTML = '';
+    runs.slice().reverse().forEach((r) => {
+      const row = document.createElement('div');
+      row.className = 'run-log-row';
+      row.textContent = `${r.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} — ${r.km}km${r.minutes ? ' in ' + r.minutes + ' min' : ''}`;
+      runListEl.appendChild(row);
+    });
+  }
+
+  // Sleep
+  const sleepChartEl = document.getElementById('sleep-chart');
+  renderBarChart(sleepChartEl, last14Days().map((d) => ({
+    label: d.getDate(),
+    value: state.sleep[dateKey(d)] || 0,
+  })), {
+    max: 5,
+    barColor: (v) => (v >= 4 ? 'var(--green)' : v >= 3 ? 'var(--yellow-deep)' : 'var(--pink)'),
+  });
+
+  // Steps
+  const stepsChartEl = document.getElementById('steps-chart');
+  const goal = state.settings.stepGoal;
+  renderBarChart(stepsChartEl, last14Days().map((d) => ({
+    label: d.getDate(),
+    value: state.steps[dateKey(d)] || 0,
+  })), {
+    max: Math.max(goal, ...Object.values(state.steps)),
+    formatValue: (v) => (v >= 1000 ? Math.round(v / 100) / 10 + 'k' : v),
+    barColor: (v) => (v >= goal ? 'var(--green)' : 'var(--yellow-deep)'),
+  });
+
+  // Massages
+  const massageCountEl = document.getElementById('massage-count');
+  massageCountEl.textContent = `${totalMassageCount()} logged so far 💆‍♀️`;
+  const massageDotsEl = document.getElementById('massage-dots');
+  massageDotsEl.innerHTML = '';
+  const thisMonday = weekRangeFor(startOfDay(new Date())).monday;
+  for (let i = 7; i >= 0; i--) {
+    const monday = addDays(thisMonday, -7 * i);
+    const sunday = addDays(monday, 6);
+    let had = false;
+    for (let d = 0; d < 7; d++) {
+      const day = addDays(monday, d);
+      if (day > startOfDay(new Date())) break;
+      if (state.completed[taskKey(day, 'massage-thu')]) had = true;
+    }
+    const dot = document.createElement('div');
+    dot.className = 'massage-dot' + (had ? ' filled' : '');
+    dot.title = `${formatShortDate(dateKey(monday))} – ${formatShortDate(dateKey(sunday))}`;
+    massageDotsEl.appendChild(dot);
+  }
+
+  // Rewards
+  const perfectWeeks = countPerfectWeeks();
+  document.getElementById('beard-plucks-count').textContent = perfectWeeks * 5;
+  document.getElementById('perfect-weeks-count').textContent = perfectWeeks;
+  const { done, total } = currentWeekProgress();
+  document.getElementById('week-progress-label').textContent = total ? `${done}/${total} tasks done this week so far` : 'Nothing required yet this week';
+  const wpct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('week-progress-fill').style.width = wpct + '%';
+}
+
 // ---------- settings ----------
 
 const periodStartInput = document.getElementById('period-start-input');
@@ -561,12 +795,57 @@ const runStartInput = document.getElementById('run-start-input');
 const stepGoalInput = document.getElementById('step-goal-input');
 const resetBtn = document.getElementById('reset-btn');
 
+const overrideStartInput = document.getElementById('period-override-start');
+const overrideEndInput = document.getElementById('period-override-end');
+const overrideAddBtn = document.getElementById('period-override-add-btn');
+const overrideListEl = document.getElementById('period-override-list');
+
+function renderPeriodOverrides() {
+  overrideListEl.innerHTML = '';
+  state.periodOverrides
+    .slice()
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .forEach((o) => {
+      const row = document.createElement('div');
+      row.className = 'override-row';
+      const text = document.createElement('span');
+      text.textContent = o.start === o.end ? formatShortDate(o.start) : `${formatShortDate(o.start)} – ${formatShortDate(o.end)}`;
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'link-btn';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        state.periodOverrides = state.periodOverrides.filter((x) => x !== o);
+        saveState();
+        renderPeriodOverrides();
+        renderToday();
+        renderWeek();
+      });
+      row.appendChild(text);
+      row.appendChild(removeBtn);
+      overrideListEl.appendChild(row);
+    });
+}
+
+overrideAddBtn.addEventListener('click', () => {
+  const start = overrideStartInput.value;
+  if (!start) return;
+  const end = overrideEndInput.value && overrideEndInput.value >= start ? overrideEndInput.value : start;
+  state.periodOverrides.push({ start, end });
+  saveState();
+  overrideStartInput.value = '';
+  overrideEndInput.value = '';
+  renderPeriodOverrides();
+  renderToday();
+  renderWeek();
+});
+
 function renderSettings() {
   periodStartInput.value = state.settings.periodStartDay;
   periodEndInput.value = state.settings.periodEndDay;
   recoveryEveryInput.value = state.settings.recoveryEvery;
   runStartInput.value = state.settings.runStartKm;
   stepGoalInput.value = state.settings.stepGoal;
+  renderPeriodOverrides();
 }
 
 function bindSettingNumber(input, key, min, max) {
@@ -603,6 +882,7 @@ const tabs = document.querySelectorAll('.tab-btn');
 const panels = {
   today: document.getElementById('panel-today'),
   week: document.getElementById('panel-week'),
+  progress: document.getElementById('panel-progress'),
   wellness: document.getElementById('panel-wellness'),
   settings: document.getElementById('panel-settings'),
 };
@@ -614,6 +894,7 @@ tabs.forEach((btn) => {
     Object.values(panels).forEach((p) => p.classList.add('hidden'));
     panels[btn.dataset.tab].classList.remove('hidden');
     if (btn.dataset.tab === 'week') renderWeek();
+    if (btn.dataset.tab === 'progress') renderProgress();
     if (btn.dataset.tab === 'wellness') renderWellness();
     if (btn.dataset.tab === 'settings') renderSettings();
   });
@@ -622,11 +903,13 @@ tabs.forEach((btn) => {
 function renderAll() {
   renderToday();
   renderWeek();
+  renderProgress();
   renderWellness();
   renderSettings();
 }
 
 renderAll();
+maybeShowGreetingNotification();
 
 // ---------- service worker ----------
 
