@@ -608,35 +608,38 @@ function anyRunLoggedInWeek(monday) {
   });
 }
 
-// A week counts as "perfect" if every required (non-optional) check task
-// was done on every day that wasn't a period day. Weeks made entirely of
-// period days aren't perfect — there was nothing to complete.
-function isWeekPerfect(monday) {
-  let hasRequirement = false;
+const REWARD_THRESHOLD = 0.75; // earn beard plucks at 75%+ of a week's required tasks
+
+// A week earns the reward once at least REWARD_THRESHOLD of its required
+// (non-optional) check tasks are done, skipping days that are period days.
+// Weeks made entirely of period days don't count — there was nothing to do.
+function weekEarnsReward(monday) {
+  let total = 0;
+  let done = 0;
   for (let i = 0; i < 7; i++) {
     const d = addDays(monday, i);
     if (isPeriodDay(d)) continue;
     const tasks = WEEKLY_PLAN[d.getDay()] || [];
     for (const t of tasks) {
       if (t.kind !== 'check' || t.optional) continue;
-      hasRequirement = true;
+      total++;
       if (t.id === 'casual-run') {
-        if (!anyRunLoggedInWeek(monday)) return false;
-      } else if (!isDone(d, t.id)) {
-        return false;
+        if (anyRunLoggedInWeek(monday)) done++;
+      } else if (isDone(d, t.id)) {
+        done++;
       }
     }
   }
-  return hasRequirement;
+  return total > 0 && done / total >= REWARD_THRESHOLD;
 }
 
-function countPerfectWeeks() {
+function countRewardWeeks() {
   const startMonday = weekRangeFor(startOfDay(new Date(state.settings.programStart))).monday;
   const thisMonday = weekRangeFor(startOfDay(new Date())).monday;
   let count = 0;
   let cursor = startMonday;
   while (cursor < thisMonday) {
-    if (isWeekPerfect(cursor)) count++;
+    if (weekEarnsReward(cursor)) count++;
     cursor = addDays(cursor, 7);
   }
   return count;
@@ -777,9 +780,9 @@ function renderProgress() {
   }
 
   // Rewards
-  const perfectWeeks = countPerfectWeeks();
-  document.getElementById('beard-plucks-count').textContent = perfectWeeks * 5;
-  document.getElementById('perfect-weeks-count').textContent = perfectWeeks;
+  const rewardWeeks = countRewardWeeks();
+  document.getElementById('beard-plucks-count').textContent = rewardWeeks * 5;
+  document.getElementById('perfect-weeks-count').textContent = rewardWeeks;
   const { done, total } = currentWeekProgress();
   document.getElementById('week-progress-label').textContent = total ? `${done}/${total} tasks done this week so far` : 'Nothing required yet this week';
   const wpct = total ? Math.round((done / total) * 100) : 0;
