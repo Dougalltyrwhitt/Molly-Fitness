@@ -86,6 +86,10 @@ main {
   background: var(--cream);
 }
 
+.card.hidden {
+  display: none;
+}
+
 .card.period-card {
   background: var(--pink);
   font-weight: 600;
@@ -202,6 +206,58 @@ main {
   font-size: 0.75rem;
   color: var(--ink-soft);
   margin-top: 8px;
+}
+
+.task-run { display: block; }
+
+.run-form {
+  margin-top: 10px;
+}
+
+.run-form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.run-form-row label {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.run-form-row input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e5dcc4;
+  font-size: 1rem;
+}
+
+.run-save-btn {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 100px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.link-btn {
+  display: block;
+  background: none;
+  border: none;
+  color: var(--yellow-deep);
+  font-weight: 700;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
 }
 
 .week-grid {

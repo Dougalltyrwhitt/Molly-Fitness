@@ -27,6 +27,7 @@ function loadState() {
   state.sleep = state.sleep || {}; // "YYYY-MM-DD" -> 1-5
   state.steps = state.steps || {}; // "YYYY-MM-DD" -> number
   state.wellness = state.wellness || {}; // "YYYY-Www" -> { reading:bool, swim:bool }
+  state.runs = state.runs || {}; // "YYYY-MM-DD" -> { km:number, minutes:number|null }
   if (!state.settings.programStart) {
     state.settings.programStart = dateKey(new Date());
   }
@@ -182,7 +183,7 @@ function taskCard(d, task) {
   }
   const subtitle = document.createElement('div');
   subtitle.className = 'task-subtitle';
-  subtitle.textContent = task.id === 'casual-run' ? runGoalText(d) : task.subtitle;
+  subtitle.textContent = task.subtitle;
   body.appendChild(title);
   body.appendChild(subtitle);
   wrap.appendChild(body);
@@ -204,6 +205,173 @@ function taskCard(d, task) {
   return wrap;
 }
 
+// ---------- run logging (any day, not just the scheduled one) ----------
+
+function weekRangeFor(d) {
+  const start = startOfDay(d);
+  const day = (start.getDay() + 6) % 7; // Mon = 0
+  const monday = addDays(start, -day);
+  const sunday = addDays(monday, 6);
+  return { monday, sunday };
+}
+
+function runsInWeekOf(d) {
+  const { monday, sunday } = weekRangeFor(d);
+  const results = [];
+  Object.keys(state.runs).forEach((key) => {
+    const rd = new Date(key + 'T00:00:00');
+    if (rd >= monday && rd <= sunday) {
+      results.push(Object.assign({ dateKey: key, date: rd }, state.runs[key]));
+    }
+  });
+  results.sort((a, b) => a.date - b.date);
+  return results;
+}
+
+function saveRun(dateKeyStr, km, minutes) {
+  state.runs[dateKeyStr] = { km, minutes: minutes || null };
+  saveState();
+}
+
+function runLogForm(dateKeyStr, onSaved) {
+  const wrap = document.createElement('div');
+  wrap.className = 'run-form';
+
+  const row = document.createElement('div');
+  row.className = 'run-form-row';
+
+  const kmLabel = document.createElement('label');
+  kmLabel.textContent = 'Distance (km)';
+  const kmInput = document.createElement('input');
+  kmInput.type = 'number';
+  kmInput.min = '0';
+  kmInput.step = '0.1';
+  kmInput.inputMode = 'decimal';
+  kmLabel.appendChild(kmInput);
+
+  const minLabel = document.createElement('label');
+  minLabel.textContent = 'Time (min)';
+  const minInput = document.createElement('input');
+  minInput.type = 'number';
+  minInput.min = '0';
+  minInput.step = '1';
+  minInput.inputMode = 'numeric';
+  minLabel.appendChild(minInput);
+
+  row.appendChild(kmLabel);
+  row.appendChild(minLabel);
+  wrap.appendChild(row);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'run-save-btn';
+  saveBtn.textContent = 'Log it';
+  saveBtn.addEventListener('click', () => {
+    const km = parseFloat(kmInput.value);
+    if (isNaN(km) || km <= 0) {
+      kmInput.focus();
+      return;
+    }
+    const minutes = parseInt(minInput.value, 10);
+    saveRun(dateKeyStr, km, isNaN(minutes) ? null : minutes);
+    showToast(pickEncouragement());
+    onSaved();
+  });
+  wrap.appendChild(saveBtn);
+
+  return wrap;
+}
+
+function casualRunCard(d) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card task task-run';
+
+  const head = document.createElement('div');
+  head.className = 'task';
+  const icon = document.createElement('div');
+  icon.className = 'task-icon';
+  icon.textContent = '👟';
+  head.appendChild(icon);
+
+  const body = document.createElement('div');
+  body.className = 'task-body';
+  const title = document.createElement('div');
+  title.className = 'task-title';
+  title.textContent = 'Easy run';
+  body.appendChild(title);
+  const subtitle = document.createElement('div');
+  subtitle.className = 'task-subtitle';
+  body.appendChild(subtitle);
+  head.appendChild(body);
+  wrap.appendChild(head);
+
+  const todayKey = dateKey(d);
+  const ownRun = state.runs[todayKey];
+  const otherRuns = runsInWeekOf(d).filter((r) => r.dateKey !== todayKey);
+
+  if (ownRun) {
+    subtitle.textContent = `Logged: ${ownRun.km}km${ownRun.minutes ? ' in ' + ownRun.minutes + ' min' : ''}. Nice one, tiger 🎉`;
+  } else if (otherRuns.length > 0) {
+    const r = otherRuns[otherRuns.length - 1];
+    subtitle.textContent = `You already had a great run this week — ${r.km}km on ${WEEKDAY_NAMES[r.date.getDay()]}. Today can just be a bonus rest, unless you fancy another 🐯`;
+    const extraBtn = document.createElement('button');
+    extraBtn.className = 'link-btn';
+    extraBtn.textContent = 'Log another run today anyway';
+    extraBtn.addEventListener('click', () => {
+      extraBtn.remove();
+      wrap.appendChild(runLogForm(todayKey, renderToday));
+    });
+    wrap.appendChild(extraBtn);
+  } else {
+    subtitle.textContent = runGoalText(d);
+    wrap.appendChild(runLogForm(todayKey, renderToday));
+  }
+
+  return wrap;
+}
+
+function renderExtraRunCard(d) {
+  const container = document.getElementById('extra-run-card');
+  container.innerHTML = '';
+
+  // Saturday's scheduled run already has its own logging UI.
+  if (d.getDay() === 6) {
+    container.classList.add('hidden');
+    return;
+  }
+  container.classList.remove('hidden');
+
+  const heading = document.createElement('div');
+  heading.className = 'card-heading';
+  heading.textContent = '🏃 Log a run today';
+  container.appendChild(heading);
+
+  const key = dateKey(d);
+  const existing = state.runs[key];
+
+  if (existing) {
+    const p = document.createElement('div');
+    p.className = 'task-subtitle';
+    p.textContent = `Logged: ${existing.km}km${existing.minutes ? ' in ' + existing.minutes + ' min' : ''} 🎉`;
+    container.appendChild(p);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'link-btn';
+    removeBtn.textContent = 'Remove log';
+    removeBtn.addEventListener('click', () => {
+      delete state.runs[key];
+      saveState();
+      renderToday();
+    });
+    container.appendChild(removeBtn);
+  } else {
+    const note = document.createElement('div');
+    note.className = 'fine-print';
+    note.textContent = "Ran on a different day than planned? Log it here and Saturday's run will know about it.";
+    container.appendChild(note);
+    container.appendChild(runLogForm(key, renderToday));
+  }
+}
+
 function renderToday() {
   const today = new Date();
   renderHeader(today);
@@ -211,6 +379,7 @@ function renderToday() {
 
   if (isPeriodDay(today)) {
     recoveryBannerEl.classList.add('hidden');
+    document.getElementById('extra-run-card').classList.add('hidden');
     const card = document.createElement('div');
     card.className = 'card period-card';
     card.textContent = PERIOD_MESSAGES[Math.floor(Math.random() * PERIOD_MESSAGES.length)];
@@ -228,8 +397,11 @@ function renderToday() {
   }
 
   const tasks = WEEKLY_PLAN[today.getDay()] || [];
-  tasks.forEach((t) => taskListEl.appendChild(taskCard(today, t)));
+  tasks.forEach((t) => {
+    taskListEl.appendChild(t.id === 'casual-run' ? casualRunCard(today) : taskCard(today, t));
+  });
 
+  renderExtraRunCard(today);
   renderSleepAndSteps(today);
 }
 
@@ -314,10 +486,32 @@ function renderWeek() {
       const tasks = WEEKLY_PLAN[d.getDay()] || [];
       tasks.forEach((t) => {
         const row = document.createElement('div');
-        row.className = 'week-task' + (t.kind === 'check' && isDone(d, t.id) ? ' done' : '');
-        row.textContent = `${t.icon} ${t.title}`;
+        if (t.id === 'casual-run') {
+          const key = dateKey(d);
+          const ownRun = state.runs[key];
+          const otherRuns = runsInWeekOf(d).filter((r) => r.dateKey !== key);
+          if (ownRun) {
+            row.className = 'week-task done';
+            row.textContent = `👟 Logged ${ownRun.km}km`;
+          } else if (otherRuns.length > 0) {
+            row.className = 'week-task done';
+            row.textContent = '🎉 Already ran this week';
+          } else {
+            row.className = 'week-task';
+            row.textContent = `${t.icon} ${t.title}`;
+          }
+        } else {
+          row.className = 'week-task' + (t.kind === 'check' && isDone(d, t.id) ? ' done' : '');
+          row.textContent = `${t.icon} ${t.title}`;
+        }
         col.appendChild(row);
       });
+      if (d.getDay() !== 6 && state.runs[dateKey(d)]) {
+        const row = document.createElement('div');
+        row.className = 'week-task done';
+        row.textContent = `🏃 Logged ${state.runs[dateKey(d)].km}km`;
+        col.appendChild(row);
+      }
     }
 
     weekGridEl.appendChild(col);
