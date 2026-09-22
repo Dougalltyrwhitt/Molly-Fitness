@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Happy Tiger</title>
+<meta name="description" content="A lighthearted little fitness companion, made with love." />
+
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#FFC72C" />
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png" />
+<link rel="icon" href="icons/icon-16.png" sizes="16x16" type="image/png" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Happy Tiger" />
+
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">🐯 Happy Tiger</div>
+  <div id="greeting" class="greeting"></div>
+  <div id="date-label" class="date-label"></div>
+</header>
+
+<main>
+  <section id="panel-today" class="panel">
+    <div id="recovery-banner" class="banner hidden"></div>
+    <div id="task-list" class="task-list"></div>
+
+    <div class="card">
+      <div class="card-heading">😴 How'd you sleep?</div>
+      <div id="sleep-row" class="sleep-row"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">👣 Steps today</div>
+      <input id="steps-input" class="steps-input" type="number" min="0" inputmode="numeric" placeholder="From your Watch" />
+      <div class="steps-track"><div id="steps-bar" class="steps-fill"></div></div>
+      <div class="fine-print">No pressure — just for fun.</div>
+    </div>
+  </section>
+
+  <section id="panel-week" class="panel hidden">
+    <h2 class="panel-title">This week</h2>
+    <div id="week-grid" class="week-grid"></div>
+  </section>
+
+  <section id="panel-wellness" class="panel hidden">
+    <h2 class="panel-title">Wellness</h2>
+
+    <div id="swim-reminder" class="banner hidden"></div>
+
+    <label class="card checkbox-card">
+      <input id="reading-check" type="checkbox" />
+      <span>📖 Read something just for fun this week</span>
+    </label>
+
+    <label class="card checkbox-card">
+      <input id="swim-check" type="checkbox" />
+      <span>🏊 Had a swim this week</span>
+    </label>
+
+    <div class="card">
+      <div class="card-heading">⌚ Apple Watch tips</div>
+      <ul class="tip-list">
+        <li>Use the <strong>Workout app</strong> to log pilates, netball, sprints and yoga — pick the closest activity type and your Watch tracks heart rate and calories automatically.</li>
+        <li>Sleep is tracked automatically overnight — check the Sleep app in the morning, then pop a quick score in the Today tab here.</li>
+        <li>Steps and Activity Rings track themselves all day — just glance at the Fitness app on your phone and jot steps in here if you feel like it.</li>
+        <li>The <strong>Mindfulness app</strong> has short breathing sessions that pair nicely with your yoga / stretch day.</li>
+      </ul>
+      <div class="fine-print">Apple doesn't let regular websites read Watch health data directly, so this app can't auto-pull it in — but the manual bits above take seconds.</div>
+    </div>
+  </section>
+
+  <section id="panel-settings" class="panel hidden">
+    <h2 class="panel-title">Settings</h2>
+
+    <div class="card">
+      <div class="card-heading">🩸 Period days (rest, no exercise)</div>
+      <div class="settings-row">
+        <label>Start day of month <input id="period-start-input" type="number" min="1" max="31" /></label>
+        <label>End day of month <input id="period-end-input" type="number" min="1" max="31" /></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">🌤️ Recovery weeks</div>
+      <label>Every <input id="recovery-every-input" type="number" min="2" max="6" style="width:3.5em" /> weeks</label>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">👟 Run ladder</div>
+      <label>Starting distance (km) <input id="run-start-input" type="number" min="1" max="20" step="0.5" /></label>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">👣 Daily step goal</div>
+      <label>Goal <input id="step-goal-input" type="number" min="1000" max="30000" step="500" /></label>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">📲 Add to home screen (iPhone)</div>
+      <p>Open this page in Safari, tap the Share button, then "Add to Home Screen". Happy Tiger opens full-screen like a real app from then on.</p>
+    </div>
+
+    <button id="reset-btn" class="reset-btn">Reset all data on this device</button>
+  </section>
+</main>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="today">🐯<span>Today</span></button>
+  <button class="tab-btn" data-tab="week">📅<span>Week</span></button>
+  <button class="tab-btn" data-tab="wellness">💛<span>Wellness</span></button>
+  <button class="tab-btn" data-tab="settings">⚙️<span>Settings</span></button>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/schedule.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
